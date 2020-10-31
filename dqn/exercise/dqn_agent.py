@@ -80,13 +80,25 @@ class Agent():
 
         Params
         ======
-            experiences (Tuple[torch.Tensor]): tuple of (s, a, r, s', done) tuples 
+            experiences (Tuple[torch.Variable]): tuple of (s, a, r, s', done) tuples 
             gamma (float): discount factor
         """
         states, actions, rewards, next_states, dones = experiences
 
-        ## TODO: compute and minimize the loss
-        "*** YOUR CODE HERE ***"
+        pred = self.qnetwork_local(states)
+        pred = pred.gather(1, actions)
+
+        with torch.no_grad():
+            value_next_states = self.qnetwork_target(next_states)
+            value_next_states = value_next_states.max(1)[0].unsqueeze(1)
+            # (N, 1)
+            target = rewards + gamma * value_next_states
+        
+        loss = F.smooth_l1_loss(pred, target)
+        
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
 
         # ------------------- update target network ------------------- #
         self.soft_update(self.qnetwork_local, self.qnetwork_target, TAU)                     
