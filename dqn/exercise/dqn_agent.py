@@ -9,7 +9,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 BUFFER_SIZE = int(1e5)  # replay buffer size
-BATCH_SIZE = 64         # minibatch size
+BATCH_SIZE = 128         # minibatch size
 GAMMA = 0.99            # discount factor
 TAU = 1e-3              # for soft update of target parameters
 LR = 5e-4               # learning rate 
@@ -52,6 +52,7 @@ class Agent():
         if self.t_step == 0:
             # If enough samples are available in memory, get random subset and learn
             if len(self.memory) > BATCH_SIZE:
+                # experiences = self.memory.p_sample(self.qnetwork_local, self.qnetwork_target, GAMMA)
                 experiences = self.memory.sample()
                 self.learn(experiences, GAMMA)
 
@@ -92,9 +93,9 @@ class Agent():
             value_next_states = self.qnetwork_target(next_states)
             value_next_states = value_next_states.max(1)[0].unsqueeze(1)
             # (N, 1)
-            target = rewards + gamma * value_next_states
+            target = rewards + (gamma * value_next_states * (1 - dones))
         
-        loss = F.smooth_l1_loss(pred, target)
+        loss = F.mse_loss(pred, target)
         
         self.optimizer.zero_grad()
         loss.backward()
@@ -141,9 +142,32 @@ class ReplayBuffer:
         e = self.experience(state, action, reward, next_state, done)
         self.memory.append(e)
     
-    def sample(self):
+    def p_sample(self, local_q, target_q, gamma):
+        experiences = self.memory
+
+        states = torch.from_numpy(np.vstack([e.state for e in experiences if e is not None])).float().to(device)
+        actions = torch.from_numpy(np.vstack([e.action for e in experiences if e is not None])).long().to(device)
+        rewards = torch.from_numpy(np.vstack([e.reward for e in experiences if e is not None])).float().to(device)
+        next_states = torch.from_numpy(np.vstack([e.next_state for e in experiences if e is not None])).float().to(device)
+        dones = torch.from_numpy(np.vstack([e.done for e in experiences if e is not None]).astype(np.uint8)).float().to(device)
+        
+        local_q.eval()
+        with torch.no_grad():
+            pred = local_q(states).gather(1, actions)
+            
+            action_values_next = target_q(next_states).max(1)[0].unsqueeze(1)
+            target = rewards + gamma * action_values_next * (1 - dones)
+            
+            diff = torch.abs(target - pred).squeeze(1)
+            probs = torch.nn.functional.softmax(diff, 0)
+        local_q.train()
+        
+        return self.sample(probs)
+            
+        
+    def sample(self, weights=None):
         """Randomly sample a batch of experiences from memory."""
-        experiences = random.sample(self.memory, k=self.batch_size)
+        experiences = random.choices(self.memory, weights, k=self.batch_size)
 
         states = torch.from_numpy(np.vstack([e.state for e in experiences if e is not None])).float().to(device)
         actions = torch.from_numpy(np.vstack([e.action for e in experiences if e is not None])).long().to(device)
