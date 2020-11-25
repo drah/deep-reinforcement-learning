@@ -2,6 +2,7 @@ from logging import getLogger
 
 from unityagents import UnityEnvironment
 import numpy as np
+import gym
 
 _log = getLogger('main')
 
@@ -42,6 +43,7 @@ class Reacher:
         while True:
             actions = np.random.randn(self.num_agents, self.action_size) # select an action (for each agent)
             actions = np.clip(actions, -1, 1)                  # all actions between -1 and 1
+            print("actions: ", actions, end='\r', flush=True)
             env_info = self.env.step(actions)[self.brain_name]           # send all actions to tne environment
             next_states = env_info.vector_observations         # get next state (for each agent)
             rewards = env_info.rewards                         # get reward (for each agent)
@@ -52,9 +54,36 @@ class Reacher:
                 break
         _log.info('Total score (averaged over agents) this episode: {}'.format(np.mean(scores)))
 
+class GymWrapper:
+    def __init__(self, env_name, **kwargs):
+        self.env = gym.make(env_name)
+
+    def __del__(self):
+        try:
+            self.env.close()
+        except:
+            pass
+
+    def show_env(self):
+        self.env.reset()
+        while True:
+            self.env.render()
+            action = self.env.action_space.sample()
+            print("action: ", action, end='\r', flush=True)
+            _, _, done, _ = self.env.step(action)
+            if done:
+                break
+
 def get_env(env_name, **kwargs):
-    return eval(env_name)(**kwargs)
+    if env_name == 'Reacher':
+        return Reacher(**kwargs)
+    else:
+        return GymWrapper(env_name, **kwargs)
 
 if __name__ == '__main__':
     env = Reacher()
     env.show_env()
+    # env = get_env('Acrobot-v1')
+    # env.show_env()
+    # env = get_env('MountainCarContinuous-v0')
+    # env.show_env()

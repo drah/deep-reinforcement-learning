@@ -21,7 +21,7 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--env', default='Reacher', choices=['Reacher'])
+    parser.add_argument('--env', default='Reacher', choices=['Reacher', 'MountainCarContinuous-v0'])
     parser.add_argument('--log_level', default='WARNING', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'])
 
     parser.add_argument('--actor', default='SimpleFC', choices=['SimpleFC'])
@@ -32,6 +32,8 @@ if __name__ == '__main__':
 
     parser.add_argument('--save_dir', default='logs')
     parser.add_argument('--ckpt', default='')
-    args = parser.parse_known_args()
+    args = parser.parse_args()
 
-    main(args[0])
+    __log.info("\n%s\n" % str(args))
+
+    main(args)
