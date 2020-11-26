@@ -1,8 +1,9 @@
 import argparse
 import logging
 
+from algorithms import show_agent_play
 from environment import get_env
-from network import get_net
+from networks import get_net
 
 __log = logging.getLogger('main')
 
@@ -10,13 +11,13 @@ def main(args):
     __log.setLevel(level=getattr(logging, args.log_level))
 
     env = get_env(args.env)
-    actor = get_net(args.actor)
+    actor = get_net(args.actor, input_shapes=[[None, env.state_size]], output_shapes=[[None, env.action_size]])
 
     if args.train:
         pass
     
     if args.show_agent_play:
-        pass
+        show_agent_play(env, actor)
 
 
 if __name__ == '__main__':

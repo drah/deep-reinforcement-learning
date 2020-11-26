@@ -1,12 +1,9 @@
-import torch
 from torch import nn
 from torch import save
 from torch import load
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
 class Network(nn.Module):
-    def __init__(self):
+    def __init__(self, input_shapes: [[int]], output_shapes: [[int]]):
         raise NotImplementedError("Abstract Class")
 
     def forward(self, x):
@@ -24,8 +21,3 @@ def save_net(net: nn.Module, save_path: str):
 def load_net(net: nn.Module, load_path: str):
     state_dict = load(load_path)
     net.load_state_dict(state_dict)
-
-def get_net(net_name, **kwargs) -> nn.Module:
-    net = eval(net_name)(**kwargs)
-    net.to(device)
-    return net
