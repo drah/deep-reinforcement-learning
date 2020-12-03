@@ -1,23 +1,43 @@
+from abc import abstractmethod
 from torch import nn
 from torch import save
 from torch import load
 
 class Network(nn.Module):
-    def __init__(self, input_shapes: [[int]], output_shapes: [[int]]):
-        raise NotImplementedError("Abstract Class")
+    @abstractmethod
+    def __init__(self, input_shapes: [[int]], output_shapes: [[int]], **kwargs):
+        super().__init__()
+        self.input_shapes = input_shapes
+        self.output_shapes = output_shapes
+        self.kwargs = kwargs
 
     def forward(self, x):
-        raise NotImplementedError("Abstract Method")
+        raise NotImplementedError("Don't call me.")
 
-    def act(self, x):
-        raise NotImplementedError("Abstract Method")
+    def clone(self) -> 'type(self)':
+        net = type(self)(self.input_shapes, self.output_shapes, **self.kwargs)
+        net.load_state_dict(self.state_dict())
+        return net
 
-    def clone(self) -> 'Network':
-        raise NotImplementedError("Abstract Method")
+    def save(self, save_path: str):
+        save(self.state_dict(), save_path)
 
-def save_net(net: nn.Module, save_path: str):
-    save(net.state_dict(), save_path)
+    def load(self, load_path: str):
+        state_dict = load(load_path)
+        self.load_state_dict(state_dict)
 
-def load_net(net: nn.Module, load_path: str):
-    state_dict = load(load_path)
-    net.load_state_dict(state_dict)
+class Actor(Network):
+    @abstractmethod
+    def __init__(self, input_shapes: [[int]], output_shapes: [[int]], **kwargs):
+        super().__init__(input_shapes, output_shapes, **kwargs)
+
+    def act(self, states):
+        raise NotImplementedError("Don't call me.")
+
+class Critic(Network):
+    @abstractmethod
+    def __init__(self, input_shapes: [[int]], output_shapes: [[int]], **kwargs):
+        super().__init__(input_shapes, output_shapes, **kwargs)
+
+    def score(self, states, actions):
+        raise NotImplementedError("Don't call me.")

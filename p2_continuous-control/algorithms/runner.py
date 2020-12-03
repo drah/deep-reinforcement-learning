@@ -3,12 +3,12 @@ import logging
 import numpy as np
 
 from environment import Environment
-from networks import Network
+from networks import Actor
 
 __log = logging.getLogger('main')
 
 
-def show_agent_play(env: Environment, actor: Network, **kwargs):
+def show_agent_play(env: Environment, actor: Actor, **kwargs):
     states = env.reset(render=True)
     scores = np.zeros(len(states), np.float32)
     for step in count():

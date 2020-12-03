@@ -1,13 +1,25 @@
 import torch
-from .network import save_net
-from .network import load_net
+
+from global_constant import k_device
 
 from .network import Network
-from .simple_fc import SimpleFC
+from .network import Actor
+from .network import Critic
+from .ddpg_actor import DDPGActor
+from .ddpg_critic import DDPGCritic
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-def get_net(net_name, **kwargs) -> torch.nn.Module:
+def get_net(net_name, **kwargs) -> Network:
     net = eval(net_name)(**kwargs)
-    net.to(device)
+    net.to(k_device)
+    if 'load_path' in kwargs and kwargs['load_path']:
+        net.load(kwargs['load_path'])
     return net
+
+
+def get_actor(net_name, **kwargs) -> Actor:
+    return get_net(net_name, **kwargs)
+
+
+def get_critic(net_name, **kwargs) -> Critic:
+    return get_net(net_name, **kwargs)

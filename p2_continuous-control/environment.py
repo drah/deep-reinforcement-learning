@@ -45,7 +45,7 @@ class Reacher(Environment):
         return env_info.vector_observations
 
     def step(self, actions):
-        actions = actions.data.numpy()
+        # actions = actions.data.numpy()
         env_info = self.env.step(actions)[self.brain_name]
         return (env_info.vector_observations, env_info.rewards, env_info.local_done, env_info)
 
