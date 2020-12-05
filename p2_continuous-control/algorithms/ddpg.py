@@ -43,8 +43,6 @@ class DDPG(Algorithm):
         gamma = 0.99
 
         batch_size = 64
-        noise = OrnsteinUhlenbeckProcess(self.env.action_size, 0.2, 0.15, 0.01)
-
         assert warm_start_size >= batch_size
 
         save_dir = kwargs.get('save_dir', 'DDPG_logs')
@@ -64,6 +62,8 @@ class DDPG(Algorithm):
         target_critic.train()
 
         for i in range(1, n_episode + 1):
+
+            noise = OrnsteinUhlenbeckProcess(self.env.action_size, 0.2, 0.15, 0.01)
 
             states = self.env.reset()
 
