@@ -34,11 +34,11 @@ class Reacher(Environment):
         self.state_size = states.shape[1]
 
         verbose = kwargs.get('verbose', 0)
-        _log.info('Brain name: %s' % self.brain_name)
-        _log.info('Number of agents: %d' % self.num_agents)
-        _log.info('Action size: %d' % self.action_size)
-        _log.info('State size: %d' % self.state_size)
-        _log.info('The state for the first agent looks like: %s' % states[0])
+        _log.debug('Brain name: %s' % self.brain_name)
+        _log.debug('Number of agents: %d' % self.num_agents)
+        _log.debug('Action size: %d' % self.action_size)
+        _log.debug('State size: %d' % self.state_size)
+        _log.debug('The state for the first agent looks like: %s' % states[0])
 
     def reset(self, **kwargs):
         env_info = self.env.reset(train_mode=not kwargs.get('render', False))[self.brain_name]

@@ -1,7 +1,11 @@
+import logging
 from abc import abstractmethod
 from torch import nn
 from torch import save
 from torch import load
+
+_log = logging.getLogger('main')
+
 
 class Network(nn.Module):
     @abstractmethod
@@ -21,10 +25,12 @@ class Network(nn.Module):
 
     def save(self, save_path: str):
         save(self.state_dict(), save_path)
+        _log.debug('Saved {}'.format(save_path))
 
     def load(self, load_path: str):
         state_dict = load(load_path)
         self.load_state_dict(state_dict)
+        _log.debug('Loaded {}'.format(load_path))
 
 class Actor(Network):
     @abstractmethod

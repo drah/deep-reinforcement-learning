@@ -11,6 +11,7 @@ from memory import ReplayBufferNumpy
 from oup import OrnsteinUhlenbeckProcess
 from .algorithm import Algorithm
 from .utils import soft_update
+from .utils import make_datetime_path
 
 
 _log = logging.getLogger('main')
@@ -47,18 +48,35 @@ class DDPG(Algorithm):
 
         assert warm_start_size >= batch_size
 
-        _log.info('Training start')
+        save_dir = kwargs.get('save_dir', 'DDPG_logs')
+
+        fh = logging.FileHandler(make_datetime_path(save_dir, 'logs'))
+        fh.setLevel(logging.INFO)
+        _log.addHandler(fh)
+
+        from collections import deque
+        scores = deque([], maxlen=100)
+
+        _log.debug('Training start')
+
+        self.actor.train()
+        target_actor.train()
+        critic.train()
+        target_critic.train()
 
         for i in range(1, n_episode + 1):
 
             states = self.env.reset()
 
-            # import pdb; pdb.set_trace()
+            score = 0.0
+
             while True:
                 with torch.no_grad():
                     actions = self.actor.act(states)
                 noised_actions = actions.numpy() + noise.sample()
                 next_states, rewards, dones, _ = self.env.step(noised_actions)
+
+                score += np.mean(rewards)
 
                 for state, action, reward, next_state in zip(states, actions, rewards, next_states):
                     replay_buffer.push(state, action, reward,
@@ -92,4 +110,17 @@ class DDPG(Algorithm):
                 if np.any(dones):
                     break
 
-        _log.info('Done training for {} episodes.'.format(n_episode))
+            scores.append(score)
+            mean = np.mean(scores)
+            _log.info(
+                '[{}/{}] score: {}, moving average: {}'.format(i, n_episode, score, mean))
+
+            self.actor.save(make_datetime_path(save_dir, 'DDPGAlgo_actor_{}'.format(i)))
+            critic.save(make_datetime_path(save_dir, 'DDPGAlgo_critic_{}'.format(i)))
+
+        _log.debug('Done training for {} episodes.'.format(n_episode))
+
+        self.actor.eval()
+        target_actor.eval()
+        critic.eval()
+        target_critic.eval()
