@@ -67,7 +67,7 @@ class DDPG(Algorithm):
 
         r_mean = 0.
         r_std = 1.
-        r_momentum = 0.01
+        r_momentum = 0.001
 
         for i in range(1, n_episode + 1):
 
@@ -93,7 +93,7 @@ class DDPG(Algorithm):
                 r_mean += (mean - r_mean) * r_momentum
                 r_std += (std - r_std) * r_momentum
 
-                rewards = (rewards - r_mean) / (r_std + 1e-7)
+                rewards = np.clip((rewards - r_mean) / (r_std + 1e-7), -10., 10.)
                 for state, action, reward, next_state in zip(states, actions, rewards, next_states):
                     replay_buffer.push(state, action, reward, next_state)
 
