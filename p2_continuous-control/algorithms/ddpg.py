@@ -128,8 +128,9 @@ class DDPG(Algorithm):
                 '[{}/{}] score: {:.4f}, moving average: {:.4f}, r_mean: {:.6f}, r_std: {:.6f}, steps: {}'.format(
                     i, n_episode, score, mean, r_mean, r_std, step))
 
-            self.actor.save(make_datetime_path(save_dir, 'DDPGAlgo_actor_{}'.format(i)))
-            critic.save(make_datetime_path(save_dir, 'DDPGAlgo_critic_{}'.format(i)))
+            if i % 100 == 0:
+                self.actor.save(make_datetime_path(save_dir, 'DDPGAlgo_actor_{}'.format(i)))
+                critic.save(make_datetime_path(save_dir, 'DDPGAlgo_critic_{}'.format(i)))
 
             noise_coef = max(noise_coef * noise_coef_decay, noise_coef_min)
 
