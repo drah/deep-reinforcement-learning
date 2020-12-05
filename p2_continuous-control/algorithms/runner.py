@@ -13,6 +13,7 @@ def show_agent_play(env: Environment, actor: Actor, **kwargs):
     scores = np.zeros(len(states), np.float32)
     for step in count():
         actions = actor.act(states)
+        actions = actions.detach().numpy()
         __log.info("Actions: %s." % str(actions))
         states, rewards, dones, _ = env.step(actions)
         scores += np.array(rewards, dtype=np.float32)

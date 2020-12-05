@@ -2,16 +2,16 @@ import unittest
 import torch
 import numpy as np
 
-from networks import SimpleFC
+from networks import DDPGActor
 
 
 class NetworkTest(unittest.TestCase):
-    def test_SimpleFC(self):
+    def test_DDPGActor(self):
         batch_size = 8
         state_size = 32
         action_size = 4
 
-        net = SimpleFC(state_size, action_size)
+        net = DDPGActor([[None, state_size]], [[None, action_size]])
 
         fake_states = np.random.uniform(-1, 1, batch_size * state_size).reshape([batch_size, state_size]).astype(np.float32)
         fake_states = torch.from_numpy(fake_states)

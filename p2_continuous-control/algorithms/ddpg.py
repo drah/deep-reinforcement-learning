@@ -6,7 +6,8 @@ from torch import nn
 from networks import get_critic
 from environment import Environment
 from networks import Actor
-from memory import ReplayBuffer
+from networks.utils import make_tensor
+from memory import ReplayBufferNumpy
 from oup import OrnsteinUhlenbeckProcess
 from .algorithm import Algorithm
 from .utils import soft_update
@@ -34,7 +35,7 @@ class DDPG(Algorithm):
         critic_optim = torch.optim.Adam(
             critic.parameters(), 1e-3, (0.9, 0.99), weight_decay=1e-2)
 
-        replay_buffer = ReplayBuffer(int(1e6))
+        replay_buffer = ReplayBufferNumpy(int(1e6))
         warm_start_size = int(1e3)
 
         tao = 1e-3
@@ -52,21 +53,22 @@ class DDPG(Algorithm):
 
             states = self.env.reset()
 
+            # import pdb; pdb.set_trace()
             while True:
                 with torch.no_grad():
                     actions = self.actor.act(states)
                 noised_actions = actions.numpy() + noise.sample()
                 next_states, rewards, dones, _ = self.env.step(noised_actions)
 
-                # TODO: solve the issue, data wrangling and data type
                 for state, action, reward, next_state in zip(states, actions, rewards, next_states):
-                    replay_buffer.push(
-                        (state, action, reward, next_state))  # check dones
+                    replay_buffer.push(state, action, reward,
+                                       next_state)  # check dones
 
                 if len(replay_buffer) >= warm_start_size:
                     b_states, b_actions, b_rewards, b_next_states = replay_buffer.sample(
                         batch_size)
                     with torch.no_grad():
+                        b_rewards = make_tensor(b_rewards).unsqueeze_(-1)
                         y = b_rewards + gamma * \
                             target_critic.score(
                                 b_next_states, target_actor.act(b_next_states))
