@@ -37,11 +37,10 @@ class DDPG(Algorithm):
             critic.parameters(), 1e-3, (0.9, 0.99), weight_decay=1e-2)
 
         replay_buffer = ReplayBufferNumpy(int(1e6))
-        warm_start_size = int(1e3)
+        warm_start_size = int(1e4)
 
-        tao = 1e-3
-        gamma = 0.99  # check
-        update_target_cycle = 5  # check
+        tao = 5e-3
+        gamma = 0.99
 
         batch_size = 64
         noise = OrnsteinUhlenbeckProcess(self.env.action_size, 0.2, 0.15, 0.01)
@@ -80,12 +79,13 @@ class DDPG(Algorithm):
 
                 for state, action, reward, next_state in zip(states, actions, rewards, next_states):
                     replay_buffer.push(state, action, reward,
-                                       next_state)  # check dones
+                                       next_state)
 
                 if len(replay_buffer) >= warm_start_size:
                     b_states, b_actions, b_rewards, b_next_states = replay_buffer.sample(
                         batch_size)
                     with torch.no_grad():
+                        b_rewards = (b_rewards - np.mean(b_rewards)) / (np.std(b_rewards) + 1e-5)
                         b_rewards = make_tensor(b_rewards).unsqueeze_(-1)
                         y = b_rewards + gamma * \
                             target_critic.score(
