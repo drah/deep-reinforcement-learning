@@ -1,3 +1,4 @@
+from itertools import count
 import logging
 
 import numpy as np
@@ -60,6 +61,14 @@ class DDPG(Algorithm):
         critic.train()
         target_critic.train()
 
+        noise_coef = 1.
+        noise_coef_decay = 0.999
+        noise_coef_min = 0.01
+
+        r_mean = 0.
+        r_std = 1.
+        r_momentum = 0.01
+
         for i in range(1, n_episode + 1):
 
             noise = OrnsteinUhlenbeckProcess(self.env.action_size, 0.2, 0.15, 0.01)
@@ -68,14 +77,23 @@ class DDPG(Algorithm):
 
             score = 0.0
 
-            while True:
+            for step in count():
                 with torch.no_grad():
                     actions = self.actor.act(states)
-                noised_actions = actions.numpy() + noise.sample()
+                noised_actions = actions.numpy() + noise.sample() * noise_coef
                 next_states, rewards, dones, _ = self.env.step(noised_actions)
+
+                if np.any(dones):
+                    break
 
                 score += np.mean(rewards)
 
+                mean = np.mean(rewards)
+                std = np.std(rewards)
+                r_mean += (mean - r_mean) * r_momentum
+                r_std += (std - r_std) * r_momentum
+
+                rewards = (rewards - r_mean) / (r_std + 1e-7)
                 for state, action, reward, next_state in zip(states, actions, rewards, next_states):
                     replay_buffer.push(state, action, reward, next_state)
 
@@ -83,7 +101,6 @@ class DDPG(Algorithm):
                     b_states, b_actions, b_rewards, b_next_states = replay_buffer.sample(
                         batch_size)
                     with torch.no_grad():
-                        b_rewards = (b_rewards - np.mean(b_rewards)) / (np.std(b_rewards) + 1e-7)
                         b_rewards = make_tensor(b_rewards).unsqueeze_(-1)
                         y = b_rewards + gamma * \
                             target_critic.score(
@@ -105,16 +122,16 @@ class DDPG(Algorithm):
                     soft_update(target_actor, self.actor, tao)
                     soft_update(target_critic, critic, tao)
 
-                if np.any(dones):
-                    break
-
             scores.append(score)
             mean = np.mean(scores)
             _log.info(
-                '[{}/{}] score: {}, moving average: {}'.format(i, n_episode, score, mean))
+                '[{}/{}] score: {:.4f}, moving average: {:.4f}, r_mean: {:.6f}, r_std: {:.6f}, steps: {}'.format(
+                    i, n_episode, score, mean, r_mean, r_std, step))
 
             self.actor.save(make_datetime_path(save_dir, 'DDPGAlgo_actor_{}'.format(i)))
             critic.save(make_datetime_path(save_dir, 'DDPGAlgo_critic_{}'.format(i)))
+
+            noise_coef = max(noise_coef * noise_coef_decay, noise_coef_min)
 
         _log.debug('Done training for {} episodes.'.format(n_episode))
 
