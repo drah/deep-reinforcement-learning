@@ -1,9 +1,12 @@
 #!/bin/bash
+REACHER=./Reacher.app
+
 echo "========================================"
 echo "Run ddpg training..."
 
 python3 main.py \
     --env Reacher \
+    --app_path ${REACHER} \
     --algorithm DDPG \
     --actor DDPGActor \
     --critic DDPGCritic \

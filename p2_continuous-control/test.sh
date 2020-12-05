@@ -1,4 +1,6 @@
 #!/bin/bash
+REACHER=./Reacher.app
+
 echo "========================================"
 echo "Run unittest..."
 python3 -m unittest
@@ -14,6 +16,7 @@ echo "Run main.py..."
 
 python3 main.py \
     --env Reacher \
+    --app_path ${REACHER} \
     --algorithm DDPG \
     --actor DDPGActor \
     --critic DDPGCritic \

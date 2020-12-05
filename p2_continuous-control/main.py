@@ -15,7 +15,7 @@ def main(args):
     __log.setLevel(level=getattr(logging, args.log_level))
     os.makedirs(args.save_dir, exist_ok=True)
 
-    env = get_env(args.env)
+    env = get_env(args.env, app_path=args.app_path)
     actor = get_actor(args.actor,
                       input_shapes=[[None, env.state_size]],
                       output_shapes=[[None, env.action_size]],
@@ -35,10 +35,12 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--env', default='Reacher',
-                        choices=['Reacher', 'MountainCarContinuous-v0'])
     parser.add_argument('--log_level', default='INFO',
                         choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'])
+
+    parser.add_argument('--env', default='Reacher',
+                        choices=['Reacher', 'MountainCarContinuous-v0'])
+    parser.add_argument('--app_path', default='Reacher.app')
 
     parser.add_argument('--algorithm', default='DDPG', choices=['DDPG'])
 
