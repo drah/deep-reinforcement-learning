@@ -33,8 +33,7 @@ class DDPG(Algorithm):
         target_critic = critic.clone()
 
         actor_optim = torch.optim.Adam(self.actor.parameters(), 1e-4)
-        critic_optim = torch.optim.Adam(
-            critic.parameters(), 1e-3, (0.9, 0.99), weight_decay=1e-2)
+        critic_optim = torch.optim.Adam(critic.parameters(), 1e-3)
 
         replay_buffer = ReplayBufferNumpy(int(1e6))
         warm_start_size = int(1e4)
@@ -42,7 +41,7 @@ class DDPG(Algorithm):
         tao = 5e-3
         gamma = 0.99
 
-        batch_size = 64
+        batch_size = 256
         assert warm_start_size >= batch_size
 
         save_dir = kwargs.get('save_dir', 'DDPG_logs')
@@ -78,14 +77,13 @@ class DDPG(Algorithm):
                 score += np.mean(rewards)
 
                 for state, action, reward, next_state in zip(states, actions, rewards, next_states):
-                    replay_buffer.push(state, action, reward,
-                                       next_state)
+                    replay_buffer.push(state, action, reward, next_state)
 
                 if len(replay_buffer) >= warm_start_size:
                     b_states, b_actions, b_rewards, b_next_states = replay_buffer.sample(
                         batch_size)
                     with torch.no_grad():
-                        b_rewards = (b_rewards - np.mean(b_rewards)) / (np.std(b_rewards) + 1e-5)
+                        b_rewards = (b_rewards - np.mean(b_rewards)) / (np.std(b_rewards) + 1e-7)
                         b_rewards = make_tensor(b_rewards).unsqueeze_(-1)
                         y = b_rewards + gamma * \
                             target_critic.score(
