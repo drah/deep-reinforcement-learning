@@ -36,7 +36,7 @@ class DDPG(Algorithm):
         actor_optim = torch.optim.Adam(self.actor.parameters(), 1e-4)
         critic_optim = torch.optim.Adam(critic.parameters(), 1e-3)
 
-        replay_buffer = ReplayBufferNumpy(int(1e6))
+        replay_buffer = ReplayBufferNumpy(int(2e5))
         warm_start_size = int(1e4)
 
         tao = 5e-3
@@ -53,6 +53,7 @@ class DDPG(Algorithm):
 
         from collections import deque
         scores = deque([], maxlen=100)
+        solved = 30.
 
         _log.debug('Training start')
 
@@ -68,6 +69,9 @@ class DDPG(Algorithm):
         r_mean = 0.
         r_std = 1.
         r_momentum = 0.001
+
+        update_cycle = 20
+        update_times = 10
 
         for i in range(1, n_episode + 1):
 
@@ -97,30 +101,32 @@ class DDPG(Algorithm):
                 for state, action, reward, next_state in zip(states, actions, rewards, next_states):
                     replay_buffer.push(state, action, reward, next_state)
 
-                if len(replay_buffer) >= warm_start_size:
-                    b_states, b_actions, b_rewards, b_next_states = replay_buffer.sample(
-                        batch_size)
-                    with torch.no_grad():
-                        b_rewards = make_tensor(b_rewards).unsqueeze_(-1)
-                        y = b_rewards + gamma * \
-                            target_critic.score(
-                                b_next_states, target_actor.act(b_next_states))
-                    y_pred = critic.score(b_states, b_actions)
-                    loss_critic = nn.functional.mse_loss(y_pred, y)
+                if step % update_cycle == 0 and len(replay_buffer) >= warm_start_size:
+                    for _ in range(update_times):
+                        b_states, b_actions, b_rewards, b_next_states = replay_buffer.sample(
+                            batch_size)
+                        with torch.no_grad():
+                            b_rewards = make_tensor(b_rewards).unsqueeze_(-1)
+                            y = b_rewards + gamma * \
+                                target_critic.score(
+                                    b_next_states, target_actor.act(b_next_states))
+                        y_pred = critic.score(b_states, b_actions)
+                        loss_critic = torch.mean(torch.sum(0.5 * (y_pred - y) * (y_pred - y), -1))
 
-                    critic_optim.zero_grad()
-                    loss_critic.backward()
-                    critic_optim.step()
+                        critic_optim.zero_grad()
+                        loss_critic.backward()
+                        nn.utils.clip_grad_norm_(critic.parameters(), max_norm=1.)
+                        critic_optim.step()
 
-                    cur_b_actions = self.actor.act(b_states)
-                    loss_actor = -critic.score(b_states, cur_b_actions).mean()
+                        cur_b_actions = self.actor.act(b_states)
+                        loss_actor = -critic.score(b_states, cur_b_actions).mean()
 
-                    actor_optim.zero_grad()
-                    loss_actor.backward()
-                    actor_optim.step()
+                        actor_optim.zero_grad()
+                        loss_actor.backward()
+                        actor_optim.step()
 
-                    soft_update(target_actor, self.actor, tao)
-                    soft_update(target_critic, critic, tao)
+                        soft_update(target_actor, self.actor, tao)
+                        soft_update(target_critic, critic, tao)
 
             scores.append(score)
             mean = np.mean(scores)
