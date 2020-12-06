@@ -42,7 +42,7 @@ class ReplayBufferNumpy(Memory):
 
         self.__is_initialized = False
         self.__index = None
-        self.__size = None
+        self.__size = 0
         self.__memories = None
 
     def init_memory(self, *items):
