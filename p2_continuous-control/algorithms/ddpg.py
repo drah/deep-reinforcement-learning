@@ -34,7 +34,7 @@ class DDPG(Algorithm):
         target_critic = critic.clone()
 
         actor_optim = torch.optim.Adam(self.actor.parameters(), 1e-4)
-        critic_optim = torch.optim.Adam(critic.parameters(), 1e-4)
+        critic_optim = torch.optim.Adam(critic.parameters(), 1e-3, weight_decay=1e-2)
 
         replay_buffer = ReplayBufferNumpy(int(2e5))
         warm_start_size = int(1e4)
@@ -63,7 +63,7 @@ class DDPG(Algorithm):
         target_critic.train()
 
         noise_coef = 1.
-        noise_coef_decay = 0.999
+        noise_coef_decay = 0.96
         noise_coef_min = 0.01
 
         r_mean = 0.
@@ -73,6 +73,9 @@ class DDPG(Algorithm):
         update_cycle = 20
         update_times = 10
 
+        t_max = 100
+        t_max_limit = 500
+
         for i in range(1, n_episode + 1):
 
             noise = OrnsteinUhlenbeckProcess(self.env.action_size, 0.2, 0.15, 0.01)
@@ -81,13 +84,14 @@ class DDPG(Algorithm):
 
             score = 0.0
 
-            for step in count():
+            for step in range(t_max):
+                self.actor.eval()
                 with torch.no_grad():
-                    self.actor.eval()
                     actions = self.actor.act(states)
-                    self.actor.train()
-                noised_actions = actions.numpy() + noise.sample() * noise_coef
-                next_states, rewards, dones, _ = self.env.step(noised_actions)
+                self.actor.train()
+                if len(replay_buffer) >= warm_start_size:
+                    actions = actions.numpy() + noise.sample() * noise_coef
+                next_states, rewards, dones, _ = self.env.step(actions)
 
                 if np.any(dones):
                     break
@@ -139,11 +143,16 @@ class DDPG(Algorithm):
                 '[{}/{}] score: {:.4f}, moving average: {:.4f}, r_mean: {:.6f}, r_std: {:.6f}, steps: {}'.format(
                     i, n_episode, score, mean, r_mean, r_std, step))
 
+            if mean > solved:
+                __log.info('Solved!')
+                break
+
             if i % 100 == 0:
                 self.actor.save(make_datetime_path(save_dir, 'DDPGAlgo_actor_{}'.format(i)))
                 critic.save(make_datetime_path(save_dir, 'DDPGAlgo_critic_{}'.format(i)))
 
             noise_coef = max(noise_coef * noise_coef_decay, noise_coef_min)
+            t_max = min(t_max + 1, t_max_limit)
 
         _log.debug('Done training for {} episodes.'.format(n_episode))
 

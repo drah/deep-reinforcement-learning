@@ -27,8 +27,7 @@ class DDPGCritic(Critic):
         self.fc_out = nn.Linear(self.fc2_size, out_size)
         nn.init.kaiming_uniform_(self.fc1.weight, mode='fan_in', nonlinearity='relu')
         nn.init.kaiming_uniform_(self.fc2.weight, mode='fan_in', nonlinearity='relu')
-        nn.init.kaiming_uniform_(self.fc_out.weight, a=1, mode='fan_in')
-        # nn.init.uniform_(self.fc_out.weight, a=-3e-3, b=3e-3)
+        nn.init.uniform_(self.fc_out.weight, a=-3e-3, b=3e-3)
 
     def forward(self, states, actions) -> Tensor:
         net = self.bn_in(states)
