@@ -34,7 +34,7 @@ class DDPG(Algorithm):
         target_critic = critic.clone()
 
         actor_optim = torch.optim.Adam(self.actor.parameters(), 1e-4)
-        critic_optim = torch.optim.Adam(critic.parameters(), 1e-3)
+        critic_optim = torch.optim.Adam(critic.parameters(), 1e-4)
 
         replay_buffer = ReplayBufferNumpy(int(2e5))
         warm_start_size = int(1e4)
@@ -83,7 +83,9 @@ class DDPG(Algorithm):
 
             for step in count():
                 with torch.no_grad():
+                    self.actor.eval()
                     actions = self.actor.act(states)
+                    self.actor.train()
                 noised_actions = actions.numpy() + noise.sample() * noise_coef
                 next_states, rewards, dones, _ = self.env.step(noised_actions)
 
@@ -111,7 +113,7 @@ class DDPG(Algorithm):
                                 target_critic.score(
                                     b_next_states, target_actor.act(b_next_states))
                         y_pred = critic.score(b_states, b_actions)
-                        loss_critic = torch.mean(torch.sum(0.5 * (y_pred - y) * (y_pred - y), -1))
+                        loss_critic = 0.5 * torch.mean(torch.sum((y_pred - y) * (y_pred - y), -1))
 
                         critic_optim.zero_grad()
                         loss_critic.backward()
@@ -122,11 +124,14 @@ class DDPG(Algorithm):
                         loss_actor = -critic.score(b_states, cur_b_actions).mean()
 
                         actor_optim.zero_grad()
+                        critic_optim.zero_grad()
                         loss_actor.backward()
                         actor_optim.step()
 
                         soft_update(target_actor, self.actor, tao)
                         soft_update(target_critic, critic, tao)
+
+                    _log.info('loss: critic: {}, actor: {}'.format(loss_critic, loss_actor))
 
             scores.append(score)
             mean = np.mean(scores)
