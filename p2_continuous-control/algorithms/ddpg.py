@@ -89,8 +89,9 @@ class DDPG(Algorithm):
                 with torch.no_grad():
                     actions = self.actor.act(states)
                 self.actor.train()
+                actions = actions.numpy()
                 if len(replay_buffer) >= warm_start_size:
-                    actions = actions.numpy() + noise.sample() * noise_coef
+                    actions += noise.sample() * noise_coef
                 next_states, rewards, dones, _ = self.env.step(actions)
 
                 if np.any(dones):
