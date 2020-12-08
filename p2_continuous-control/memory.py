@@ -65,7 +65,7 @@ class ReplayBufferNumpy(Memory):
             self.init_memory(*items)
 
         for i, item in enumerate(items):
-            self.__memories[i][self.__index] = item
+            self.__memories[i][self.__index, ...] = item
         self.__index = (self.__index + 1) % self.buffer_size
         self.__size = min(self.__size + 1, self.buffer_size)
 

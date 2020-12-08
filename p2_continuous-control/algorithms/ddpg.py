@@ -37,13 +37,13 @@ class DDPG(Algorithm):
         critic_optim = torch.optim.Adam(critic.parameters(), kwargs.get('critic_lr', 1e-3),
                                         weight_decay=kwargs.get('critic_weight_decay', 1e-3))
 
-        replay_buffer = ReplayBufferNumpy(int(kwargs.get('buffer_size', 2e5)))
-        warm_start_size = int(1e4)
+        replay_buffer = ReplayBufferNumpy(int(kwargs.get('buffer_size', 1e5)))
+        warm_start_size = int(128)
 
         tao = kwargs.get('tao', 1e-3)
         gamma = 0.99
 
-        batch_size = 256
+        batch_size = 128
         assert warm_start_size >= batch_size
 
         save_dir = kwargs.get('save_dir', 'DDPG_logs')
@@ -67,15 +67,12 @@ class DDPG(Algorithm):
         noise_coef_decay = kwargs.get('noise_coef_decay', 0.99)
         noise_coef_min = 0.01
 
-        # r_mean = 0.
-        # r_std = 1.
-        # r_momentum = 0.001
-        r_base = 0.05
+        # r_base = 0.05
 
-        update_cycle = 20
-        update_times = 10
+        update_cycle = 5
+        update_times = 5
 
-        t_max = 100
+        t_max = 1000
         t_max_limit = 1000
 
         state_mean = kwargs.get('state_mean', 0.)
@@ -117,7 +114,7 @@ class DDPG(Algorithm):
 
                 # rewards = np.clip((rewards - r_mean) / (r_std + 1e-7), -10., 10.)
                 for state, action, reward, next_state in zip(states, actions, rewards, next_states):
-                    replay_buffer.push(state, action, (reward - r_base) / r_base, next_state)
+                    replay_buffer.push(state, action, reward, next_state)
 
                 states = next_states
                 
@@ -125,20 +122,21 @@ class DDPG(Algorithm):
                     for _ in range(update_times):
                         b_states, b_actions, b_rewards, b_next_states = replay_buffer.sample(
                             batch_size)
+
                         with torch.no_grad():
                             b_rewards = make_tensor(b_rewards).unsqueeze_(-1)
                             y = b_rewards + gamma * \
                                 target_critic.score(
                                     b_next_states, target_actor.act(b_next_states))
                         y_pred = critic.score(b_states, b_actions)
-                        squared_y_pred = torch.pow(y_pred, 2.)
-                        pan = torch.where(squared_y_pred > torch.Tensor([25.]), squared_y_pred, torch.zeros(1)).sum(-1).mean()
+                        # squared_y_pred = torch.pow(y_pred, 2.)
+                        # pan = torch.where(squared_y_pred > torch.Tensor([25.]), squared_y_pred, torch.zeros(1)).sum(-1).mean()
                         
-                        loss_critic = 0.5 * torch.mean(torch.sum(torch.pow(y - y_pred, 2.), -1)) + pan
+                        loss_critic = 0.5 * torch.mean(torch.sum(torch.pow(y - y_pred, 2.), -1))# + pan
 
                         critic_optim.zero_grad()
                         loss_critic.backward()
-                        nn.utils.clip_grad_norm_(critic.parameters(), max_norm=1.)
+                        nn.utils.clip_grad_norm_(critic.parameters(), max_norm=5.)
                         critic_optim.step()
                         
                     for _ in range(update_times):
