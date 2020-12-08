@@ -33,13 +33,14 @@ class DDPG(Algorithm):
         target_actor = self.actor.clone()
         target_critic = critic.clone()
 
-        actor_optim = torch.optim.Adam(self.actor.parameters(), 1e-4)
-        critic_optim = torch.optim.Adam(critic.parameters(), 1e-3, weight_decay=1e-2)
+        actor_optim = torch.optim.Adam(self.actor.parameters(), kwargs.get('actor_lr', 1e-4))
+        critic_optim = torch.optim.Adam(critic.parameters(), kwargs.get('critic_lr', 1e-3),
+                                        weight_decay=kwargs.get('critic_weight_decay', 1e-3))
 
-        replay_buffer = ReplayBufferNumpy(int(2e5))
+        replay_buffer = ReplayBufferNumpy(int(kwargs.get('buffer_size', 2e5)))
         warm_start_size = int(1e4)
 
-        tao = 5e-3
+        tao = kwargs.get('tao', 1e-3)
         gamma = 0.99
 
         batch_size = 256
@@ -63,24 +64,30 @@ class DDPG(Algorithm):
         target_critic.train()
 
         noise_coef = 1.
-        noise_coef_decay = 0.96
+        noise_coef_decay = kwargs.get('noise_coef_decay', 0.99)
         noise_coef_min = 0.01
 
-        r_mean = 0.
-        r_std = 1.
-        r_momentum = 0.001
+        # r_mean = 0.
+        # r_std = 1.
+        # r_momentum = 0.001
+        r_base = 0.05
 
         update_cycle = 20
         update_times = 10
 
         t_max = 100
-        t_max_limit = 500
+        t_max_limit = 1000
 
+        state_mean = kwargs.get('state_mean', 0.)
+        state_std = kwargs.get('state_std', 1.)
+        _log.info('state_mean: {}, state_std: {}'.format(state_mean, state_std))
+        
         for i in range(1, n_episode + 1):
 
-            noise = OrnsteinUhlenbeckProcess(self.env.action_size, 0.2, 0.15, 0.01)
+            noise = OrnsteinUhlenbeckProcess(self.env.action_size, 0.2, 0.15, 1)
 
             states = self.env.reset()
+            states = np.clip(np.subtract(states, state_mean) / state_std, -1, 1)
 
             score = 0.0
 
@@ -91,23 +98,29 @@ class DDPG(Algorithm):
                 self.actor.train()
                 actions = actions.numpy()
                 if len(replay_buffer) >= warm_start_size:
-                    actions += noise.sample() * noise_coef
-                next_states, rewards, dones, _ = self.env.step(actions)
+                    sampled_noise = noise.sample() * noise_coef
+                    if step == 0:
+                        _log.info('sampled_noise: {}, actions: {}'.format(sampled_noise, actions[0]))
+                    actions += sampled_noise
+                next_states, rewards, dones, _ = self.env.step(np.clip(actions, -1, 1))
+                next_states = np.subtract(next_states, state_mean) / state_std
 
                 if np.any(dones):
                     break
 
                 score += np.mean(rewards)
 
-                mean = np.mean(rewards)
-                std = np.std(rewards)
-                r_mean += (mean - r_mean) * r_momentum
-                r_std += (std - r_std) * r_momentum
+                # mean = np.mean(rewards)
+                # std = np.std(rewards)
+                # r_mean += (mean - r_mean) * r_momentum
+                # r_std += (std - r_std) * r_momentum
 
-                rewards = np.clip((rewards - r_mean) / (r_std + 1e-7), -10., 10.)
+                # rewards = np.clip((rewards - r_mean) / (r_std + 1e-7), -10., 10.)
                 for state, action, reward, next_state in zip(states, actions, rewards, next_states):
-                    replay_buffer.push(state, action, reward, next_state)
+                    replay_buffer.push(state, action, (reward - r_base) / r_base, next_state)
 
+                states = next_states
+                
                 if step % update_cycle == 0 and len(replay_buffer) >= warm_start_size:
                     for _ in range(update_times):
                         b_states, b_actions, b_rewards, b_next_states = replay_buffer.sample(
@@ -118,21 +131,30 @@ class DDPG(Algorithm):
                                 target_critic.score(
                                     b_next_states, target_actor.act(b_next_states))
                         y_pred = critic.score(b_states, b_actions)
-                        loss_critic = 0.5 * torch.mean(torch.sum((y_pred - y) * (y_pred - y), -1))
+                        squared_y_pred = torch.pow(y_pred, 2.)
+                        pan = torch.where(squared_y_pred > torch.Tensor([25.]), squared_y_pred, torch.zeros(1)).sum(-1).mean()
+                        
+                        loss_critic = 0.5 * torch.mean(torch.sum(torch.pow(y - y_pred, 2.), -1)) + pan
 
                         critic_optim.zero_grad()
                         loss_critic.backward()
                         nn.utils.clip_grad_norm_(critic.parameters(), max_norm=1.)
                         critic_optim.step()
-
+                        
+                    for _ in range(update_times):
+                        b_states, b_actions, b_rewards, b_next_states = replay_buffer.sample(
+                            batch_size)
+                        
                         cur_b_actions = self.actor.act(b_states)
                         loss_actor = -critic.score(b_states, cur_b_actions).mean()
 
                         actor_optim.zero_grad()
                         critic_optim.zero_grad()
                         loss_actor.backward()
+                        nn.utils.clip_grad_norm_(self.actor.parameters(), max_norm=5.)
                         actor_optim.step()
 
+                    for _ in range(update_times):
                         soft_update(target_actor, self.actor, tao)
                         soft_update(target_critic, critic, tao)
 
@@ -141,8 +163,8 @@ class DDPG(Algorithm):
             scores.append(score)
             mean = np.mean(scores)
             _log.info(
-                '[{}/{}] score: {:.4f}, moving average: {:.4f}, r_mean: {:.6f}, r_std: {:.6f}, steps: {}'.format(
-                    i, n_episode, score, mean, r_mean, r_std, step))
+                '[{}/{}] score: {:.4f}, moving average: {:.4f}, steps: {}'.format(
+                    i, n_episode, score, mean, step))
 
             if mean > solved:
                 __log.info('Solved!')

@@ -16,13 +16,13 @@ class DDPGActor(Actor):
             output_shapes[0]) == 2, 'Rank of input and output should be 2.'
         in_size = input_shapes[0][1]
         out_size = output_shapes[0][1]
-        self.fc1_size = 32
-        self.fc2_size = 32
-        self.bn_in = nn.BatchNorm1d(in_size, momentum=0.001)
+        self.fc1_size = 256
+        self.fc2_size = 256
+        # self.bn_in = nn.BatchNorm1d(in_size, momentum=0.001)
         self.fc1 = nn.Linear(in_size, self.fc1_size)
-        self.bn1 = nn.BatchNorm1d(self.fc1_size, momentum=0.001)
+        # self.bn1 = nn.BatchNorm1d(self.fc1_size, momentum=0.001)
         self.fc2 = nn.Linear(self.fc1_size, self.fc2_size)
-        self.bn2 = nn.BatchNorm1d(self.fc2_size, momentum=0.001)
+        # self.bn2 = nn.BatchNorm1d(self.fc2_size, momentum=0.001)
         self.fc_out = nn.Linear(self.fc2_size, out_size)
         nn.init.kaiming_uniform_(self.fc1.weight, mode='fan_in', nonlinearity='relu')
         nn.init.kaiming_uniform_(self.fc2.weight, mode='fan_in', nonlinearity='relu')
@@ -30,12 +30,12 @@ class DDPGActor(Actor):
 
     def forward(self, x) -> Tensor:
         net = x
-        net = self.bn_in(net)
+        # net = self.bn_in(net)
         net = self.fc1(net)
-        net = self.bn1(net)
+        # net = self.bn1(net)
         net = nn.functional.relu(net)
         net = self.fc2(net)
-        net = self.bn2(net)
+        # net = self.bn2(net)
         net = nn.functional.relu(net)
         net = self.fc_out(net)
         return net
