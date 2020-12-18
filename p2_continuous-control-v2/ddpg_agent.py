@@ -10,19 +10,19 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 BUFFER_SIZE = int(1e6)  # replay buffer size
-BATCH_SIZE = 1024        # minibatch size
-GAMMA = 0.99            # discount factor
+BATCH_SIZE = 64         # minibatch size
 TAU = 5e-3              # for soft update of target parameters
 LR_ACTOR = 3e-4         # learning rate of the actor 
 LR_CRITIC = 1e-3        # learning rate of the critic
-WEIGHT_DECAY = 1e-5        # L2 weight decay
+WEIGHT_DECAY = 1e-5
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class Agent():
     """Interacts with and learns from the environment."""
     
-    def __init__(self, state_size, action_size, random_seed):
+    def __init__(self, state_size, action_size, random_seed, gamma=0.99, lr_decay=0.97, decay_steps=10000, lr_min=1e-4,
+                 **kwargs):
         """Initialize an Agent object.
         
         Params
@@ -34,26 +34,38 @@ class Agent():
         self.state_size = state_size
         self.action_size = action_size
         self.seed = random.seed(random_seed)
+        
+        self.global_step = 0
+        self.step_i = 0
+        self.update_cycle = kwargs.get('update_cycle', 20)
+        self.update_times = kwargs.get('update_times', 10)
+        self.gamma = kwargs.get('gamma', 0.99)
+        
+        self.lr_decay = kwargs.get('lr_decay', 0.97)
+        self.decay_steps = kwargs.get('decay_steps', 10000)
+        self.lr_min = kwargs.get('lr_min', 1e-4)
+        self.actor_lr = max(LR_ACTOR, lr_min)
+        self.critic_lr = max(LR_CRITIC, lr_min)
+        
+        self.buffer_size = kwargs.get('buffer_size', BUFFER_SIZE)
+        self.batch_size = kwargs.get('batch_size', BATCH_SIZE)
+        self.warm_start_size = kwargs.get('warm_start_size', BATCH_SIZE)
 
         # Actor Network (w/ Target Network)
         self.actor_local = Actor(state_size, action_size, random_seed).to(device)
         self.actor_target = Actor(state_size, action_size, random_seed).to(device)
-        self.actor_optimizer = optim.Adam(self.actor_local.parameters(), lr=LR_ACTOR)
+        self.actor_optimizer = optim.Adam(self.actor_local.parameters(), lr=self.actor_lr)
 
         # Critic Network (w/ Target Network)
         self.critic_local = Critic(state_size, action_size, random_seed).to(device)
         self.critic_target = Critic(state_size, action_size, random_seed).to(device)
-        self.critic_optimizer = optim.Adam(self.critic_local.parameters(), lr=LR_CRITIC, weight_decay=WEIGHT_DECAY)
+        self.critic_optimizer = optim.Adam(self.critic_local.parameters(), lr=self.critic_lr, weight_decay=WEIGHT_DECAY)
 
         # Noise process
         self.noise = OUNoise(action_size, random_seed)
 
         # Replay memory
-        self.memory = ReplayBuffer(action_size, BUFFER_SIZE, BATCH_SIZE, random_seed)
-
-        self.step_i = 0
-        self.update_cycle = 400
-        self.update_times = 10
+        self.memory = ReplayBuffer(action_size, self.buffer_size, self.batch_size, random_seed)
     
     def step(self, state, action, reward, next_state, done):
         """Save experience in replay memory, and use random sample from buffer to learn."""
@@ -62,16 +74,30 @@ class Agent():
         self.step_i += 1
 
         # Learn, if enough samples are available in memory
-        if len(self.memory) > BATCH_SIZE and self.step_i % self.update_cycle == 0:
+        if len(self.memory) > self.warm_start_size and self.step_i % self.update_cycle == 0:
             actor_losses = []
             critic_losses = []
             for _ in range(self.update_times):
                 experiences = self.memory.sample()
-                actor_loss, critic_loss = self.learn(experiences, GAMMA)
+                actor_loss, critic_loss = self.learn(experiences, self.gamma)
                 actor_losses.append(actor_loss)
                 critic_losses.append(critic_loss)
-            print("actor_loss: {}, critic_loss: {}".format(np.mean(actor_losses), np.mean(critic_losses)), end='\r')
-            self.step_i = 0
+
+                self.global_step += 1
+
+                if self.global_step % self.decay_steps == 0:
+                    self.actor_lr = max(self.actor_lr * self.lr_decay, self.lr_min)
+                    self.critic_lr = max(self.critic_lr * self.lr_decay, self.lr_min)
+                    for params in self.actor_optimizer.param_groups:
+                        params['lr'] = self.actor_lr
+                    for params in self.critic_optimizer.param_groups:
+                        params['lr'] = self.critic_lr
+                    print("[{}] actor_lr: {}, critic_lr: {}".format(self.global_step, self.actor_lr, self.critic_lr))
+
+            print("[{}] actor_loss: {}, critic_loss: {}".format(
+                self.global_step, np.mean(actor_losses), np.mean(critic_losses)), end='\r')
+
+            self.step_i = 0      
 
     def act(self, state, add_noise=True):
         """Returns actions for given state as per current policy."""
@@ -100,6 +126,9 @@ class Agent():
             gamma (float): discount factor
         """
         states, actions, rewards, next_states, dones = experiences
+        with torch.no_grad():
+            rewards_mean = torch.mean(rewards, 0, keepdim=True)
+        rewards = rewards - rewards_mean
 
         # ---------------------------- update critic ---------------------------- #
         # Get predicted next-state actions and Q values from target models
