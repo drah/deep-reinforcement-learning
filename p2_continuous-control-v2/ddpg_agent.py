@@ -99,7 +99,7 @@ class Agent():
 
             self.step_i = 0      
 
-    def act(self, state, add_noise=True):
+    def act(self, state, add_noise=False):
         """Returns actions for given state as per current policy."""
         state = torch.from_numpy(state).float().to(device)
         self.actor_local.eval()
@@ -112,6 +112,10 @@ class Agent():
 
     def reset(self):
         self.noise.reset()
+
+        # noisy net
+        for param in self.actor_local.parameters():
+            param.data.copy_(param.data + torch.normal(torch.zeros(param.shape), torch.ones(param.shape) * 0.02).to(device))
 
     def learn(self, experiences, gamma):
         """Update policy and value parameters using given batch of experience tuples.
@@ -126,9 +130,6 @@ class Agent():
             gamma (float): discount factor
         """
         states, actions, rewards, next_states, dones = experiences
-        with torch.no_grad():
-            rewards_mean = torch.mean(rewards, 0, keepdim=True)
-        rewards = rewards - rewards_mean
 
         # ---------------------------- update critic ---------------------------- #
         # Get predicted next-state actions and Q values from target models
@@ -152,11 +153,12 @@ class Agent():
         # Minimize the loss
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
+        # torch.nn.utils.clip_grad_norm_(self.actor_local.parameters(), 1.)
         self.actor_optimizer.step()
 
         # ----------------------- update target networks ----------------------- #
         self.soft_update(self.critic_local, self.critic_target, TAU)
-        self.soft_update(self.actor_local, self.actor_target, TAU)                     
+        self.soft_update(self.actor_local, self.actor_target, TAU)
 
         return actor_loss.cpu().data.numpy(), critic_loss.cpu().data.numpy()
 
