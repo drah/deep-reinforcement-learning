@@ -49,7 +49,7 @@ class Agent():
         
         self.buffer_size = kwargs.get('buffer_size', BUFFER_SIZE)
         self.batch_size = kwargs.get('batch_size', BATCH_SIZE)
-        self.warm_start_size = kwargs.get('warm_start_size', BATCH_SIZE)
+        self.warm_start_size = max(kwargs.get('warm_start_size', BATCH_SIZE), self.batch_size)
 
         # Actor Network (w/ Target Network)
         self.actor_local = Actor(state_size, action_size, random_seed).to(device)
@@ -57,8 +57,8 @@ class Agent():
         self.actor_optimizer = optim.Adam(self.actor_local.parameters(), lr=self.actor_lr)
 
         # Critic Network (w/ Target Network)
-        self.critic_local = Critic(state_size, action_size, random_seed).to(device)
-        self.critic_target = Critic(state_size, action_size, random_seed).to(device)
+        self.critic_local = Critic(state_size * 2, action_size, random_seed).to(device)
+        self.critic_target = Critic(state_size * 2, action_size, random_seed).to(device)
         self.critic_optimizer = optim.Adam(self.critic_local.parameters(), lr=self.critic_lr, weight_decay=WEIGHT_DECAY)
 
         # Noise process
@@ -67,10 +67,10 @@ class Agent():
         # Replay memory
         self.memory = ReplayBuffer(action_size, self.buffer_size, self.batch_size, random_seed)
     
-    def step(self, state, action, reward, next_state, done):
+    def step(self, state, action, reward, next_state, done, state_another, next_state_another):
         """Save experience in replay memory, and use random sample from buffer to learn."""
         # Save experience / reward
-        self.memory.add(state, action, reward, next_state, done)
+        self.memory.add(state, action, reward, next_state, done, state_another, next_state_another)
         self.step_i += 1
 
         # Learn, if enough samples are available in memory
@@ -95,7 +95,7 @@ class Agent():
                     print("[{}] actor_lr: {}, critic_lr: {}".format(self.global_step, self.actor_lr, self.critic_lr))
 
             print("[{}] actor_loss: {}, critic_loss: {}".format(
-                self.global_step, np.mean(actor_losses), np.mean(critic_losses)), end='\r')
+                self.global_step, np.mean(actor_losses), np.mean(critic_losses)), end='\n')
 
             self.step_i = 0      
 
@@ -129,16 +129,17 @@ class Agent():
             experiences (Tuple[torch.Tensor]): tuple of (s, a, r, s', done) tuples 
             gamma (float): discount factor
         """
-        states, actions, rewards, next_states, dones = experiences
+        states, actions, rewards, next_states, dones, states_another, next_states_another = experiences
 
         # ---------------------------- update critic ---------------------------- #
         # Get predicted next-state actions and Q values from target models
         actions_next = self.actor_target(next_states)
-        Q_targets_next = self.critic_target(next_states, actions_next)
+        Q_targets_next = self.critic_target(torch.cat([next_states, next_states_another], -1), actions_next)
         # Compute Q targets for current states (y_i)
         Q_targets = rewards + (gamma * Q_targets_next * (1 - dones))
+        # Q_targets = rewards + (gamma * Q_targets_next)
         # Compute critic loss
-        Q_expected = self.critic_local(states, actions)
+        Q_expected = self.critic_local(torch.cat([states, states_another], -1), actions)
         critic_loss = F.mse_loss(Q_expected, Q_targets)
         # Minimize the loss
         self.critic_optimizer.zero_grad()
@@ -149,7 +150,7 @@ class Agent():
         # ---------------------------- update actor ---------------------------- #
         # Compute actor loss
         actions_pred = self.actor_local(states)
-        actor_loss = -self.critic_local(states, actions_pred).mean()
+        actor_loss = -self.critic_local(torch.cat([states, states_another], -1), actions_pred).mean()
         # Minimize the loss
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
@@ -210,12 +211,13 @@ class ReplayBuffer:
         self.action_size = action_size
         self.memory = deque(maxlen=buffer_size)  # internal memory (deque)
         self.batch_size = batch_size
-        self.experience = namedtuple("Experience", field_names=["state", "action", "reward", "next_state", "done"])
+        self.experience = namedtuple("Experience", field_names=[
+            "state", "action", "reward", "next_state", "done", "state_another", "next_state_another"])
         self.seed = random.seed(seed)
     
-    def add(self, state, action, reward, next_state, done):
+    def add(self, state, action, reward, next_state, done, state_another, next_state_another):
         """Add a new experience to memory."""
-        e = self.experience(state, action, reward, next_state, done)
+        e = self.experience(state, action, reward, next_state, done, state_another, next_state_another)
         self.memory.append(e)
     
     def sample(self):
@@ -227,8 +229,10 @@ class ReplayBuffer:
         rewards = torch.from_numpy(np.vstack([e.reward for e in experiences if e is not None])).float().to(device)
         next_states = torch.from_numpy(np.vstack([e.next_state for e in experiences if e is not None])).float().to(device)
         dones = torch.from_numpy(np.vstack([e.done for e in experiences if e is not None]).astype(np.uint8)).float().to(device)
+        states_another = torch.from_numpy(np.vstack([e.state_another for e in experiences if e is not None])).float().to(device)
+        next_states_another = torch.from_numpy(np.vstack([e.next_state_another for e in experiences if e is not None])).float().to(device)
 
-        return (states, actions, rewards, next_states, dones)
+        return (states, actions, rewards, next_states, dones, states_another, next_states_another)
 
     def __len__(self):
         """Return the current size of internal memory."""
