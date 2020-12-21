@@ -79,7 +79,7 @@ def ddpg(agents, env, n_episodes=10000, max_t=1000, window_size=100, ckpt_prefix
             torch.save(agent.actor_local.state_dict(), ckpt_prefix + '_actor_{}.pth'.format(agent_i))
             torch.save(agent.critic_local.state_dict(), ckpt_prefix + '_critic_{}.pth'.format(agent_i))
 
-        if len(scores_deque) == window_size and moving_mean >= 0.5:
+        if len(scores_deque) == window_size and moving_mean >= 1.0:
             print("Solved at episode {}!".format(i_episode - window_size + 1))
             break
 
