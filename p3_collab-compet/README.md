@@ -22,13 +22,13 @@ The environment is considered solved, when the average (over 100 episodes) of th
 `$ pip3 install gym`
 
 2. Download the environment 'Tennis' according your system and unzip it.
-Max: https://s3-us-west-1.amazonaws.com/udacity-drlnd/P3/Tennis/Tennis.app.zip
-Linux: https://s3-us-west-1.amazonaws.com/udacity-drlnd/P3/Tennis/Tennis_Linux.zip
+- Linux: https://s3-us-west-1.amazonaws.com/udacity-drlnd/P3/Tennis/Tennis_Linux.zip
+- Mac: https://s3-us-west-1.amazonaws.com/udacity-drlnd/P3/Tennis/Tennis.app.zip
 
 # Train
 `$ python3 main.py <absolute_path_to_Tennis>`
-For Linux, <absolute_path_to_Tennis> is like <some_directory>/Tennis/Tennis.x86_64
-For Mac, <absolute_path_to_Tennis> is like <some_directory>/Tennis.app
+- For Linux, <absolute_path_to_Tennis> is like <some_directory>/Tennis/Tennis.x86_64
+- For Mac, <absolute_path_to_Tennis> is like <some_directory>/Tennis.app
 
 # Show
 `$ python3 show.py <absolute_path_to_Tennis>`
