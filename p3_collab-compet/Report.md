@@ -83,6 +83,7 @@ The following is the plot of scores: the blue is the scores of each episode, whi
 In dump.txt, we can see that the task is solved when training 24597 episodes.
 
 The video of the agents show.
+
 [![](http://img.youtube.com/vi/--FFYKM8ofc/0.jpg)](http://www.youtube.com/watch?v=--FFYKM8ofc "")
 
 # Future Work
