@@ -21,8 +21,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 class Agent():
     """Interacts with and learns from the environment."""
     
-    def __init__(self, state_size, action_size, random_seed, gamma=0.99, lr_decay=0.97, decay_steps=10000, lr_min=1e-4,
-                 **kwargs):
+    def __init__(self, state_size, action_size, random_seed, **kwargs):
         """Initialize an Agent object.
         
         Params
@@ -33,7 +32,7 @@ class Agent():
         """
         self.state_size = state_size
         self.action_size = action_size
-        self.seed = random.seed(random_seed)
+        random.seed(random_seed)
         
         self.global_step = 0
         self.step_i = 0
@@ -44,8 +43,8 @@ class Agent():
         self.lr_decay = kwargs.get('lr_decay', 0.97)
         self.decay_steps = kwargs.get('decay_steps', 10000)
         self.lr_min = kwargs.get('lr_min', 1e-4)
-        self.actor_lr = max(LR_ACTOR, lr_min)
-        self.critic_lr = max(LR_CRITIC, lr_min)
+        self.actor_lr = max(LR_ACTOR, self.lr_min)
+        self.critic_lr = max(LR_CRITIC, self.lr_min)
         
         self.buffer_size = kwargs.get('buffer_size', BUFFER_SIZE)
         self.batch_size = kwargs.get('batch_size', BATCH_SIZE)
@@ -65,7 +64,7 @@ class Agent():
         self.noise = OUNoise(action_size, random_seed)
 
         # Replay memory
-        self.memory = ReplayBuffer(action_size, self.buffer_size, self.batch_size, random_seed)
+        self.memory = ReplayBuffer(self.action_size, self.buffer_size, self.batch_size, random_seed)
     
     def step(self, state, action, reward, next_state, done, state_another, next_state_another):
         """Save experience in replay memory, and use random sample from buffer to learn."""
@@ -111,9 +110,6 @@ class Agent():
         return np.clip(action, -1, 1)
 
     def reset(self):
-        self.noise.reset()
-
-        # noisy net
         for param in self.actor_local.parameters():
             param.data.copy_(param.data + torch.normal(torch.zeros(param.shape), torch.ones(param.shape) * 0.02).to(device))
 
@@ -137,7 +133,6 @@ class Agent():
         Q_targets_next = self.critic_target(torch.cat([next_states, next_states_another], -1), actions_next)
         # Compute Q targets for current states (y_i)
         Q_targets = rewards + (gamma * Q_targets_next * (1 - dones))
-        # Q_targets = rewards + (gamma * Q_targets_next)
         # Compute critic loss
         Q_expected = self.critic_local(torch.cat([states, states_another], -1), actions)
         critic_loss = F.mse_loss(Q_expected, Q_targets)
@@ -154,7 +149,6 @@ class Agent():
         # Minimize the loss
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
-        # torch.nn.utils.clip_grad_norm_(self.actor_local.parameters(), 1.)
         self.actor_optimizer.step()
 
         # ----------------------- update target networks ----------------------- #
@@ -184,7 +178,7 @@ class OUNoise:
         self.mu = mu * np.ones(size)
         self.theta = theta
         self.sigma = sigma
-        self.seed = random.seed(seed)
+        random.seed(seed)
         self.reset()
 
     def reset(self):
@@ -213,7 +207,7 @@ class ReplayBuffer:
         self.batch_size = batch_size
         self.experience = namedtuple("Experience", field_names=[
             "state", "action", "reward", "next_state", "done", "state_another", "next_state_another"])
-        self.seed = random.seed(seed)
+        random.seed(seed)
     
     def add(self, state, action, reward, next_state, done, state_another, next_state_another):
         """Add a new experience to memory."""
