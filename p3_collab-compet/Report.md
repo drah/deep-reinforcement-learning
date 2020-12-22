@@ -16,20 +16,20 @@ The environment is considered solved, when the average (over 100 episodes) of th
 
 # Setup
 1. Clone this repository and cd into this directory
-`$ git clone https://github.com/drah/deep-reinforcement-learning.git`
-`$ cd deep-reinforcement-learning/p3_collab-compet`
+- `$ git clone https://github.com/drah/deep-reinforcement-learning.git`
+- `$ cd deep-reinforcement-learning/p3_collab-compet`
 2. Install the provided environment and gym in your virtual env.
-`$ pip3 install ../python/`
-`$ pip3 install gym`
+- `$ pip3 install ../python/`
+- `$ pip3 install gym`
 
 2. Download the environment 'Tennis' according your system and unzip it.
-Max: https://s3-us-west-1.amazonaws.com/udacity-drlnd/P3/Tennis/Tennis.app.zip
-Linux: https://s3-us-west-1.amazonaws.com/udacity-drlnd/P3/Tennis/Tennis_Linux.zip
+- Linux: https://s3-us-west-1.amazonaws.com/udacity-drlnd/P3/Tennis/Tennis_Linux.zip
+- Max: https://s3-us-west-1.amazonaws.com/udacity-drlnd/P3/Tennis/Tennis.app.zip
 
 # Train
 `$ python3 main.py <absolute_path_to_Tennis> --train`
-For Linux, <absolute_path_to_Tennis> is like <some_directory>/Tennis/Tennis.x86_64
-For Mac, <absolute_path_to_Tennis> is like <some_directory>/Tennis.app
+- For Linux, <absolute_path_to_Tennis> is like <some_directory>/Tennis/Tennis.x86_64
+- For Mac, <absolute_path_to_Tennis> is like <some_directory>/Tennis.app
 
 # Show
 `$ python3 show.py <absolute_path_to_Tennis> --show`
