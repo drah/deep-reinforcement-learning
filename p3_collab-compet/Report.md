@@ -75,6 +75,21 @@ In this project, we highlight the following add-ons:
 With these add-ons, the two agents will learn to collaborate and compete with each other in the environment.
 Please see the result in the next section.
 
+The followings are the hyperparameters used in the project:
+- reward_accum_steps: 1000,
+- random_seed: 1,
+- gamma: 0.99,
+- update_cycle: 400,
+- update_times: 10,
+- buffer_size: int(1e6),
+- batch_size: 1024,
+- warm_start_size: 1024,
+- max_t: 1000,
+- reset_cycle: 20000,
+- lr_decay: 0.97
+- decay_steps: 10000
+- lr_min: 1e-4
+
 # Result
 Please refer to dump.txt for the training progress.
 The following is the plot of scores: the blue is the scores of each episode, while the orange is the average scores over 100 consecutive episodes.
